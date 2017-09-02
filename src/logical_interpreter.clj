@@ -1,4 +1,5 @@
 (ns logical-interpreter)
+
 (def parent-database "varon(juan).
 	varon(pepe).
 	varon(hector).
@@ -15,8 +16,15 @@
 	hija(X, Y) :- mujer(X), padre(Y, X).
 ")
 
+
+
 (defrecord Fact [name variables])
+
 (defrecord Rule [name variables facts])
+
+(defmulti match_to (fn [this other] [(class this) (class other)]))
+(defmethod match_to [Fact Fact] [this other] (= this other))
+(defmethod match_to [Fact Rule] [this other] false)
 
 (defn remove_tabs_dots_and_white_spaces[rule_or_fact]
       (clojure.string/replace (clojure.string/replace rule_or_fact #"[\t.]" "") " " "")
@@ -43,13 +51,14 @@
       (if (= nil facts)
         (throw (Exception. "Invalid Rule"))
         )
-      (map create_fact_or_rule (clojure.string/split facts #"(?<![A-Z]),"))
+      (doall (map create_fact_or_rule (clojure.string/split facts #"(?<![A-Z]),")))
+      facts
       )
 
 (defn create_fact_or_rule [fact_or_rule]
       (if (= nil (re-find #":-" fact_or_rule))
         (new Fact (get_name fact_or_rule) (get_variables fact_or_rule))
-        nil
+        (new Rule (get_name fact_or_rule) (get_variables fact_or_rule) (get_facts fact_or_rule))
         )
       )
 
@@ -59,5 +68,7 @@
       (def list_facts_and_rules (clojure.string/split-lines database))
       (def list_facts_and_rules (map remove_tabs_dots_and_white_spaces list_facts_and_rules))
       (def list_facts_and_rules (map create_fact_or_rule list_facts_and_rules))
-      (some #(= (create_fact_or_rule query) %) list_facts_and_rules)
+      (some #(match_to (create_fact_or_rule query) %) list_facts_and_rules)
       )
+
+(evaluate-query parent-database "mujer(maria)")
