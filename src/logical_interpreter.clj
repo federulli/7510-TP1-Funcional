@@ -1,22 +1,5 @@
 (ns logical-interpreter)
 
-(def parent-database "
-	varon(juan).
-	varon(pepe).
-	varon(hector).
-	varon(roberto).
-	varon(alejandro).
-	mujer(maria).
-	mujer(cecilia).
-	padre(juan, pepe).
-	padre(juan, pepa).
-	padre(hector, maria).
-	padre(roberto, alejandro).
-	padre(roberto, cecilia).
-	hijo(X, Y) :- varon(X), padre(Y, X).
-	hija(X, Y) :- mujer(X), padre(Y, X).
-")
-
 (defn replace-map
       "given an input string and a hash-map, returns a new string with all
       keys in map found in input replaced with the value of the key"
@@ -25,32 +8,32 @@
                               (re-pattern (apply str (interpose "|" (map #(java.util.regex.Pattern/quote %) (keys m)))))
                               m))
 
+(defrecord Fact [name variables])
+
+(defrecord Rule [name variables facts])
+
+(defn get_name [fact]
+      (def fact_name (get (re-find #"([^\(]*)\(" fact) 1))
+      (if (= nil fact_name)
+        (throw (Exception. "Invalid Fact"))
+        fact_name
+        )
+      )
+(declare get_facts_string)
+(declare get_variables)
+(declare are_all_facts_true)
+
+(defn create_fact_or_rule [fact_or_rule]
+      (if (= nil (re-find #":-" fact_or_rule))
+        (new Fact (get_name fact_or_rule) (get_variables fact_or_rule))
+        (new Rule (get_name fact_or_rule) (get_variables fact_or_rule) (get_facts_string fact_or_rule))
+        )
+      )
 
 (defn get_facts_list [facts_string variables_map]
       (def splited_facts (clojure.string/split facts_string #"(?<![A-Z]),"))
       (into [] (map create_fact_or_rule (map #(replace-map % variables_map ) splited_facts))
             ))
-
-
-(defrecord Fact [name variables])
-
-(defrecord Rule [name variables facts])
-
-(comment "
-(defmulti match_to (fn [this other db] [(class this) (class other) (class db)]))
-
-(defmethod match_to [Fact Fact clojure.lang.PersistentVector] [this other db] (= this other))
-
-(defmethod match_to [Fact Rule clojure.lang.PersistentVector] [this other db]
-    (if (not= (:name this) (:name other))
-      false
-      (if (not= (count (:variables this)) (count (:variables other)))
-        false
-        (are_all_facts_true this other)
-      )
-    )
-)"
-         )
 
 (defmulti match (fn [this other db] [(class this) (class other) (class db)]))
 
@@ -90,13 +73,6 @@
         )
       )
 
-(defn get_name [fact]
-      (def name (get (re-find #"([^\(]*)\(" fact) 1))
-      (if (= nil name)
-        (throw (Exception. "Invalid Fact"))
-        name
-        )
-      )
 
 (defn get_facts_string [string_rule]
       (def facts (get (re-find #":-(.*)" string_rule) 1))
@@ -105,13 +81,6 @@
         )
       (doall (map create_fact_or_rule (clojure.string/split facts #"(?<![A-Z]),")))
       facts
-      )
-
-(defn create_fact_or_rule [fact_or_rule]
-      (if (= nil (re-find #":-" fact_or_rule))
-        (new Fact (get_name fact_or_rule) (get_variables fact_or_rule))
-        (new Rule (get_name fact_or_rule) (get_variables fact_or_rule) (get_facts_string fact_or_rule))
-        )
       )
 
 (defn evaluate-query [database query]
@@ -128,6 +97,3 @@
         (catch Exception e)
         )
       )
-
-
-;(evaluate-query parent-database "hijo(pepe, juan)")
