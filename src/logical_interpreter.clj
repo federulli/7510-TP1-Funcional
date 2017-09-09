@@ -1,6 +1,7 @@
 (ns logical-interpreter)
 
-(def parent-database "varon(juan).
+(def parent-database "
+	varon(juan).
 	varon(pepe).
 	varon(hector).
 	varon(roberto).
@@ -15,7 +16,6 @@
 	hijo(X, Y) :- varon(X), padre(Y, X).
 	hija(X, Y) :- mujer(X), padre(Y, X).
 ")
-
 
 (defn replace-map
       "given an input string and a hash-map, returns a new string with all
@@ -53,7 +53,9 @@
          )
 
 (defmulti match (fn [this other db] [(class this) (class other) (class db)]))
+
 (defmethod match [Fact Fact clojure.lang.PersistentVector] [this other db] (= this other))
+
 (defmethod match [Fact Rule clojure.lang.PersistentVector] [this other db]
            (if (not= (:name this) (:name other))
              false
@@ -115,17 +117,17 @@
 (defn evaluate-query [database query]
       "Returns true if the rules and facts in database imply query, false if not. If
        either input can't be parsed, returns nil"
-      (def list_facts_and_rules (clojure.string/split-lines database))
-      (def list_facts_and_rules (map remove_tabs_dots_and_white_spaces list_facts_and_rules))
-      (def list_facts_and_rules  (into [] (doall (map create_fact_or_rule list_facts_and_rules))))
-      (if (= nil (some #(match (create_fact_or_rule query) % list_facts_and_rules) list_facts_and_rules))
-        false
-        true
+      (try
+        (def list_facts_and_rules (into [] (remove empty? (clojure.string/split-lines database))))
+        (def list_facts_and_rules (map remove_tabs_dots_and_white_spaces list_facts_and_rules))
+        (def list_facts_and_rules  (into [] (doall (map create_fact_or_rule list_facts_and_rules))))
+        (if (= nil (some #(match (create_fact_or_rule (remove_tabs_dots_and_white_spaces query)) % list_facts_and_rules) list_facts_and_rules))
+          false
+          true
+          )
+        (catch Exception e)
         )
       )
 
-(evaluate-query parent-database "hija(maria,roberto)")
 
-
-;(match fact fact [])
-;(are_all_facts_true fact rule)
+;(evaluate-query parent-database "hijo(pepe, juan)")
